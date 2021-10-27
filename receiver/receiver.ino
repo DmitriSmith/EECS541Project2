@@ -1,13 +1,16 @@
-int pin = 1;
+int rx_pin = A0;
+int tx_pin = 1;
+int high = 676;
+int low = 246;
 int prev = 0;
 String pattern = "0110100100111";
 int len = pattern.length();
 int counter = 0;
-int flag = 0;
+int val = 0;
 
 void setup() {
   // put your setup code here, to run once:
-  pinMode(pin, OUTPUT);
+  pinMode(tx_pin, OUTPUT);
   
   // TIMER 1 for interrupt frequency 3000.1875117194822 Hz:
   cli(); // stop interrupts
@@ -34,17 +37,13 @@ ISR(TIMER1_COMPA_vect){
 //     digitalWrite(pin, LOW);
 //     prev = 0;
 //   }
-  if(flag == 0) { flag = 1; } 
-  else {
-    flag = 0;
-    if(pattern[counter] == '1') {
-      digitalWrite(pin, HIGH);
-    } else {
-      digitalWrite(pin, LOW);
-    }
-    counter++;
-    if(counter == len) { counter = 0; }
+  val = analogRead(rx_pin);
+  if(val > high) {
+    digitalWrite(tx_pin, HIGH);
+  } else if (val < low) {
+    digitalWrite(tx_pin, LOW);
   }
+  
 }
 
 void loop() {
