@@ -1,14 +1,27 @@
-int pin = 1;
-int prev = 0;
+int pin = 9;
+byte prev = 0;
+const byte DELIM_BYTE = 0x7e;
 String pattern = "0110100100111";
-int len = pattern.length();
-int counter = 0;
-int flag = 0;
+byte tx_buf;
+byte msg[] = {0x7e, 0x7a, 0x77, 0x2a, 0x00, DELIM_BYTE};
+//byte msg[] = {0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
+int byte_len = 8;
+int tx_counter, msg_counter, msg_len;
+int checksum = 0;
+byte tx_flag = 0;
+byte load_tx_buf = 0;
 
 void setup() {
   // put your setup code here, to run once:
   pinMode(pin, OUTPUT);
-  
+  Serial.begin(115200);
+  tx_buf = msg[0];
+  msg_counter = 1;
+  tx_counter = 7;
+  msg_len = 6;
+  for(int i = 7; i >= 0; i--) {
+    Serial.print(bitRead(tx_buf,i));
+  }
   // TIMER 1 for interrupt frequency 3000.1875117194822 Hz:
   cli(); // stop interrupts
   TCCR1A = 0; // set entire TCCR1A register to 0
@@ -23,27 +36,50 @@ void setup() {
   // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
   sei(); // allow interrupts
+
+
+  
 }
 
 ISR(TIMER1_COMPA_vect){
-    //interrupt commands for TIMER 1 here
-//   if(prev == 0) {
-//     digitalWrite(pin, HIGH);
-//     prev = 1;
-//   } else {
-//     digitalWrite(pin, LOW);
-//     prev = 0;
-//   }
-  if(flag == 0) { flag = 1; } 
+//  if(tx_flag == 0) {
+//    tx_flag = 1;
+//  } else {
+//    if(prev == 0) {
+//      digitalWrite(pin, HIGH);
+//      prev = 1;
+//    } else {
+//      digitalWrite(pin, LOW);
+//      prev = 0;
+//    }
+//    tx_flag = 0;
+//  }
+  if(tx_flag == 0) { 
+    tx_flag = 1;
+    if(load_tx_buf == 1) {
+      load_tx_buf = 0;
+      tx_buf = msg[msg_counter];
+      msg_counter++;
+      if (msg_counter == msg_len) {
+        msg_counter = 0;
+      }
+    }
+  } 
   else {
-    flag = 0;
-    if(pattern[counter] == '1') {
+    tx_flag = 0;
+    if(bitRead(tx_buf,tx_counter) == 1) {
       digitalWrite(pin, HIGH);
+//      Serial.write("1\n");
     } else {
       digitalWrite(pin, LOW);
+//      Serial.write("0\n");
     }
-    counter++;
-    if(counter == len) { counter = 0; }
+    if(tx_counter == 7) {
+      tx_counter = 0;
+      load_tx_buf = 1;
+    } else {
+      tx_counter++;
+    }
   }
 }
 

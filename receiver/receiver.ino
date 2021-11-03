@@ -1,16 +1,25 @@
-int rx_pin = A0;
-int tx_pin = 1;
-int high = 676;
-int low = 246;
-int prev = 0;
-String pattern = "0110100100111";
-int len = pattern.length();
-int counter = 0;
-int val = 0;
+unsigned int rx_pin = 9;
+unsigned int tx_pin = 1;
+byte prev[2] = {0,0};
+byte output_buf[24];
+uint8_t len = 24;
+const byte DELIM_BYTE = 0x7e;
+uint8_t output_counter = 0;
+byte val = 0;
+unsigned long checksum = 0;
+unsigned long bit_errors = 0;
+byte rx_buf, rx_counter;
+byte byte_buf;
+uint8_t sample_flag = 0;
+uint8_t record_flag = 0;
+uint8_t byte_ready = 0;
 
 void setup() {
   // put your setup code here, to run once:
   pinMode(tx_pin, OUTPUT);
+  pinMode(rx_pin, INPUT);
+
+  rx_counter = 0;
   
   // TIMER 1 for interrupt frequency 3000.1875117194822 Hz:
   cli(); // stop interrupts
@@ -37,16 +46,57 @@ ISR(TIMER1_COMPA_vect){
 //     digitalWrite(pin, LOW);
 //     prev = 0;
 //   }
-  val = analogRead(rx_pin);
-  if(val > high) {
+  val = digitalRead(rx_pin);
+  if(val == HIGH) {
     digitalWrite(tx_pin, HIGH);
-  } else if (val < low) {
+  } else {
     digitalWrite(tx_pin, LOW);
   }
+  if (prev[0] != prev[1] && prev[1] != val) {
+    //This is definitely a bit error
+    bit_errors++;
+    //In this case, we assume the measured val is correct 
+  }
+  if(sample_flag == 0) {
+    sample_flag = 1;
+  } else {
+    sample_flag = 0;
+    bitWrite(rx_buf, rx_counter, val);
+
+    if(rx_counter == 7) {
+      byte_ready = 1;
+      byte_buf = rx_buf;
+      rx_counter = 0;
+    }
+  }
+  
+
+  prev[0] = prev[1];
+  prev[1] = val;  
   
 }
 
+void check_byte() {
+  if (record_flag == 0) {
+    if (byte_buf == DELIM_BYTE) {
+      record_flag = 1;
+    }
+  } else {
+    if (byte_buf == DELIM_BYTE) {
+      record_flag = 0;
+    } else {
+      output_buf[output_counter];
+      if (output_counter == len - 1) {
+        output_counter = 0;
+      }
+    }
+  }
+}
+
 void loop() {
-  // put your main code here, to run repeatedly:
+  if(byte_ready == 1) {
+    byte_ready = 0;
+    check_byte();
+  }
 
 }
